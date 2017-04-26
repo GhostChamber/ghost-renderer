@@ -21,6 +21,7 @@
 GLuint vbo = 0;
 GLuint texture = 0;
 GLuint faces = 0;
+float rotation = 0.0f;
 
 #define OBJ_MAX_SIZE 1048576
 static char s_arFileBuffer[OBJ_MAX_SIZE];
@@ -90,18 +91,22 @@ int Init ( ESContext *esContext )
    UserData *userData = (UserData*) esContext->userData;
    const char* vShaderStr =  
       "attribute vec4 vPosition;    \n"
+      "attribute vec3 vNormal;      \n"
+      "varying vec3 inNormal;      \n"
       "uniform mat4 mMatrix;        \n"
       "void main()                  \n"
       "{                            \n"
+      "   inNormal = vNormal;      \n"
       "   vec4 pos = vec4(vPosition.xyz, 1.0);        \n"
       "   gl_Position = mMatrix * pos;  \n"
       "}                            \n";
    
    const char* fShaderStr =  
       "precision mediump float;\n"\
+      "varying vec3 inNormal;\n"
       "void main()                                  \n"
       "{                                            \n"
-      "  gl_FragColor = vec4 ( 0.7, 0.0, 0.0, 1.0 );\n"
+      "  gl_FragColor = vec4(inNormal, 1.0);                   \n"
       "}                                            \n";
 
    GLuint vertexShader;
@@ -474,6 +479,7 @@ unsigned int LoadOBJ(const char*   pFileName,
 //
 void Draw ( ESContext *esContext )
 {
+   rotation += 1.0f;
    UserData *userData = (UserData*) esContext->userData;
    GLfloat vVertices[] = { 0.0f,  0.5f, 0.0f,
 						   -0.5f, -0.5f, 0.0f,
@@ -495,17 +501,25 @@ void Draw ( ESContext *esContext )
 	   printf("Failed to find position attribute");
    }
 
+   GLint hNormal = glGetAttribLocation(userData->programObject, "vNormal");
+   if (hNormal == -1)
+{
+	printf("Failed to find normal attribute");
+}
+
    GLint hMatrix = glGetUniformLocation(userData->programObject, "mMatrix");
    ESMatrix matrix;
    esMatrixLoadIdentity(&matrix);
    esFrustum(&matrix, -0.025f, 0.025f, -0.017f, 0.017f, 0.1f, 1024.0f);
    esTranslate(&matrix, 0.0f, 0.0f, -10.0f);
+   esRotate(&matrix, rotation, 0.0f, 1.0f, 0.0f);
    glUniformMatrix4fv(hMatrix, 1, GL_FALSE, &matrix.m[0][0]);
 
    glBindBuffer(GL_ARRAY_BUFFER, vbo);
    glVertexAttribPointer ( hPosition, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0 );
-   glEnableVertexAttribArray ( 0 );
-
+   glVertexAttribPointer(hNormal, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)20); 
+glEnableVertexAttribArray ( 0 );
+   glEnableVertexAttribArray(hNormal);
    glDrawArrays ( GL_TRIANGLES, 0, 3 * faces );
 }
 
