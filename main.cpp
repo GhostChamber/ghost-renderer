@@ -265,6 +265,97 @@ void GetCounts(const char* pFileName,
 	}
 }
 
+GLuint LoadBMP(char* path)
+{
+	GLuint texHandle = 0;
+
+	ReadAsset(path, s_arFileBuffer, OBJ_MAX_SIZE);
+	char* data = s_arFileBuffer;
+
+	unsigned char* pData = 0;
+	unsigned char* pSrc = 0;
+
+	int nWidth = 0;
+	int nHeight = 0;
+	unsigned short sBPP = 0;
+
+
+
+	// Grab the dimensions of texture
+	nWidth = *reinterpret_cast<int*>(&data[18]);
+	nHeight = *reinterpret_cast<int*>(&data[22]);
+	sBPP = *reinterpret_cast<short*>(&data[28]);
+
+	if (nWidth > MAX_TEXTURE_SIZE ||
+		nHeight > MAX_TEXTURE_SIZE)
+	{
+		// Texture too big.
+		printf("Texture too big!");
+	}
+
+	if (sBPP == 24)
+	{
+		pSrc = reinterpret_cast<unsigned char*>(&data[54]);
+
+		pData = new unsigned char[nWidth * nHeight * 4];
+
+		unsigned char* pDst = pData;
+
+		int nPadding = (nWidth * 3) % 4;
+
+		if (nPadding != 0)
+			nPadding = 4 - nPadding;
+
+		for (int i = 0; i < nHeight; i++)
+		{
+			for (int j = 0; j < nWidth; j++)
+			{
+				pDst[0] = pSrc[2];
+				pDst[1] = pSrc[1];
+				pDst[2] = pSrc[0];
+				pDst[3] = 255;
+
+				pDst += 4;
+				pSrc += 3;
+			}
+
+			pSrc += nPadding;
+		}
+
+		// Create texture 
+		// Generate and bind as current texture
+		glGenTextures(1, &texHandle);
+		glBindTexture(GL_TEXTURE_2D, texHandle);
+
+		// Set default texture paramters
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		// Allocate graphics memory and upload texture
+		glTexImage2D(GL_TEXTURE_2D,
+			0,
+			GL_RGB,
+			nWidth,
+			nHeight,
+			0,
+			GL_RGB,
+			GL_UNSIGNED_BYTE,
+			pData);
+
+		delete pData;
+		pData = nullptr;
+	}
+	else
+	{
+		// Unsupported bits per pixel!
+		printf("Unsupported BPP");
+	}
+
+	return texHandle;
+}
+
 void GenerateVertexBuffer(int nNumFaces,
 	float* pVertices,
 	float* pUVs,
