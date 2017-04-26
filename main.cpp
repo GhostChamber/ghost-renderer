@@ -489,7 +489,7 @@ void Draw ( ESContext *esContext )
    glViewport ( 0, 0, esContext->width, esContext->height );
    
    // Clear the color buffer
-   glClear ( GL_COLOR_BUFFER_BIT );
+   glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
    // Use the program object
    glUseProgram ( userData->programObject );
@@ -520,6 +520,8 @@ void Draw ( ESContext *esContext )
    glVertexAttribPointer(hNormal, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)20); 
 glEnableVertexAttribArray ( 0 );
    glEnableVertexAttribArray(hNormal);
+
+   glEnable(GL_DEPTH_TEST);
    glDrawArrays ( GL_TRIANGLES, 0, 3 * faces );
 }
 
@@ -531,7 +533,7 @@ int main ( int argc, char *argv[] )
    esInitContext ( &esContext );
    esContext.userData = &userData;
 
-   esCreateWindow ( &esContext, "Hello Triangle", 1920, 1080, ES_WINDOW_RGB );
+   esCreateWindow ( &esContext, "Ghost Renderer", 1920, 1080, ES_WINDOW_RGB | ES_WINDOW_DEPTH);
 
    if ( !Init ( &esContext ) )
       return 0;
