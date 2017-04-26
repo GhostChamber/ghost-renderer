@@ -27,19 +27,19 @@ default: all
 all: ./ghost-renderer
 
 clean:
-	find . -name "CH??_*" | xargs rm -f
+	rm *.o
 
 esShader.o:
 	gcc $(CFLAGS) ${COMMONSRC} Common/esShader.c -c ${INCDIR} ${LIBS}
 
 esTransform.o:
-	gcc $(CFLAGS) ${COMMONSRC} Common/esTransform.c -c esTransform.o ${INCDIR} ${LIBS}
+	gcc $(CFLAGS) ${COMMONSRC} Common/esTransform.c -c ${INCDIR} ${LIBS}
 
 esShapes.o:
-	gcc $(CFLAGS) ${COMMONSRC} Common/esShapes.c -c esShapes.o ${INCDIR} ${LIBS}
+	gcc $(CFLAGS) ${COMMONSRC} Common/esShapes.c -c ${INCDIR} ${LIBS}
 
 esUtil.o:
-	gcc $(CFLAGS) ${COMMONSRC} Common/esUtil.c -c esUtil.o ${INCDIR} ${LIBS}
+	gcc $(CFLAGS) ${COMMONSRC} Common/esUtil.c -c ${INCDIR} ${LIBS}
 
 ./ghost-renderer: esShader.o esTransform.o esShapes.o esUtil.o ${COMMONHDR} ${renderer-src}
 	g++ -std=c++11 $(CFLAGS) esShader.o esTransform.o esShapes.o esUtil.o ${renderer-src} -o $@ ${INCDIR} ${LIBS}
