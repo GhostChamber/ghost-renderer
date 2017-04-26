@@ -90,9 +90,11 @@ int Init ( ESContext *esContext )
    UserData *userData = (UserData*) esContext->userData;
    const char* vShaderStr =  
       "attribute vec4 vPosition;    \n"
+      "uniform mat4 mMatrix;        \n"
       "void main()                  \n"
       "{                            \n"
-      "   gl_Position = vPosition;  \n"
+      "   vec4 pos = vec4(vPosition.xyz, 1.0);        \n"
+      "   gl_Position = mMatrix * pos;  \n"
       "}                            \n";
    
    const char* fShaderStr =  
@@ -492,6 +494,13 @@ void Draw ( ESContext *esContext )
    {
 	   printf("Failed to find position attribute");
    }
+
+   GLint hMatrix = glGetUniformLocation(userData->programObject, "mMatrix");
+   ESMatrix matrix;
+   esMatrixLoadIdentity(&matrix);
+   esFrustum(&matrix, -0.025f, 0.025f, -0.017f, 0.017f, 0.1f, 1024.0f);
+   esTranslate(&matrix, 0.0f, 0.0f, -10.0f);
+   glUniformMatrix4fv(hMatrix, 1, GL_FALSE, &matrix.m[0][0]);
 
    glBindBuffer(GL_ARRAY_BUFFER, vbo);
    glVertexAttribPointer ( hPosition, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0 );
