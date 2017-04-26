@@ -20,7 +20,7 @@ COMMONSRC=./Common/esShader.c    \
           ./Common/esUtil.c
 COMMONHRD=esUtil.h
 
-renderer-src=./main.c
+renderer-src=./main.cpp
 
 default: all
 
@@ -29,5 +29,17 @@ all: ./ghost-renderer
 clean:
 	find . -name "CH??_*" | xargs rm -f
 
-./ghost-renderer: ${COMMONSRC} ${COMMONHDR} ${renderer-src}
-	gcc $(CFLAGS) ${COMMONSRC} ${renderer-src} -o $@ ${INCDIR} ${LIBS}
+esShader.o:
+	gcc $(CFLAGS) ${COMMONSRC} Common/esShader.c -c ${INCDIR} ${LIBS}
+
+esTransform.o:
+	gcc $(CFLAGS) ${COMMONSRC} Common/esTransform.c -c esTransform.o ${INCDIR} ${LIBS}
+
+esShapes.o:
+	gcc $(CFLAGS) ${COMMONSRC} Common/esShapes.c -c esShapes.o ${INCDIR} ${LIBS}
+
+esUtil.o:
+	gcc $(CFLAGS) ${COMMONSRC} Common/esUtil.c -c esUtil.o ${INCDIR} ${LIBS}
+
+./ghost-renderer: esShader.o esTransform.o esShapes.o esUtil.o ${COMMONHDR} ${renderer-src}
+	g++ -std=c++11 $(CFLAGS) esShader.o esTransform.o esShapes.o esUtil.o ${renderer-src} -o $@ ${INCDIR} ${LIBS}

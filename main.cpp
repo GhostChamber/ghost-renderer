@@ -16,11 +16,14 @@
 //    OpenGL ES 2.0 rendering.
 #include <stdlib.h>
 #include "esUtil.h"
+#include <stdio.h>
 
 GLuint vbo = 0;
 GLuint texture = 0;
 GLuint faces = 0;
 
+#define OBJ_MAX_SIZE 1048576
+static char s_arFileBuffer[OBJ_MAX_SIZE];
 
 typedef struct
 {
@@ -61,7 +64,7 @@ GLuint LoadShader ( GLenum type, const char *shaderSrc )
       
       if ( infoLen > 1 )
       {
-         char* infoLog = malloc (sizeof(char) * infoLen );
+         char* infoLog = (char*) malloc (sizeof(char) * infoLen );
 
          glGetShaderInfoLog ( shader, infoLen, NULL, infoLog );
          esLogMessage ( "Error compiling shader:\n%s\n", infoLog );            
@@ -84,15 +87,15 @@ int Init ( ESContext *esContext )
 {
    esContext->userData = malloc(sizeof(UserData));
 
-   UserData *userData = esContext->userData;
-   GLbyte vShaderStr[] =  
+   UserData *userData = (UserData*) esContext->userData;
+   const char* vShaderStr =  
       "attribute vec4 vPosition;    \n"
       "void main()                  \n"
       "{                            \n"
       "   gl_Position = vPosition;  \n"
       "}                            \n";
    
-   GLbyte fShaderStr[] =  
+   const char* fShaderStr =  
       "precision mediump float;\n"\
       "void main()                                  \n"
       "{                                            \n"
@@ -134,7 +137,7 @@ int Init ( ESContext *esContext )
       
       if ( infoLen > 1 )
       {
-         char* infoLog = malloc (sizeof(char) * infoLen );
+         char* infoLog = (char*) malloc (sizeof(char) * infoLen );
 
          glGetProgramInfoLog ( programObject, infoLen, NULL, infoLog );
          esLogMessage ( "Error linking program:\n%s\n", infoLog );            
@@ -166,7 +169,7 @@ void ReadAsset(const char* pFileName,
 	// Check if file was found
 	if (pFile == 0)
 	{
-		LogError("Asset could not be opened.");
+		printf("Asset could not be opened.");
 		return;
 	}
 
@@ -178,7 +181,7 @@ void ReadAsset(const char* pFileName,
 	// Check if file is too big
 	if (nFileSize > nMaxSize)
 	{
-		LogError("File is too large.");
+		printf("File is too large.");
 		fclose(pFile);
 		return;
 	}
@@ -193,7 +196,7 @@ void ReadAsset(const char* pFileName,
 	fclose(pFile);
 }
 
-void MeshLoader::GetCounts(const char* pFileName,
+void GetCounts(const char* pFileName,
 	int& nNumVerts,
 	int& nNumUVs,
 	int& nNumNormals,
@@ -212,7 +215,7 @@ void MeshLoader::GetCounts(const char* pFileName,
 
 	ReadAsset(pFileName,
 		s_arFileBuffer,
-		MESH_LOADER_MAX_FILE_SIZE);
+		OBJ_MAX_SIZE);
 
 	pStr = s_arFileBuffer;
 
@@ -469,7 +472,7 @@ unsigned int LoadOBJ(const char*   pFileName,
 //
 void Draw ( ESContext *esContext )
 {
-   UserData *userData = esContext->userData;
+   UserData *userData = (UserData*) esContext->userData;
    GLfloat vVertices[] = { 0.0f,  0.5f, 0.0f,
 						   -0.5f, -0.5f, 0.0f,
 							0.5f, -0.5f, 0.0f };
@@ -484,7 +487,7 @@ void Draw ( ESContext *esContext )
    glUseProgram ( userData->programObject );
 
    // Load VBO and attributes
-   GLint hPosition = glGetAttribLocation(userData->programObject);
+   GLint hPosition = glGetAttribLocation(userData->programObject, "vPosition");
    if (hPosition == -1)
    {
 	   printf("Failed to find position attribute");
