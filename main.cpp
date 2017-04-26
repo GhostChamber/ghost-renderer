@@ -497,7 +497,7 @@ void Draw ( ESContext *esContext )
    glVertexAttribPointer ( hPosition, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0 );
    glEnableVertexAttribArray ( 0 );
 
-   glDrawArrays ( GL_TRIANGLES, 0, 3 );
+   glDrawArrays ( GL_TRIANGLES, 0, 3 * faces );
 }
 
 int main ( int argc, char *argv[] )
@@ -513,7 +513,7 @@ int main ( int argc, char *argv[] )
    if ( !Init ( &esContext ) )
       return 0;
 
-   vbo = LoadOBJ("Kat.obj", faces, nullptr);
+   vbo = LoadOBJ("Models/Kat.obj", faces, nullptr);
 
    esRegisterDrawFunc ( &esContext, Draw );
 
