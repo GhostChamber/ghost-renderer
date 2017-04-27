@@ -31,7 +31,7 @@ int serverSocket = 0;
 float rotation = 0.0f;
 
 #define VIEWING_OFFSET_Y -0.4f
-#define VIEWING_DISTANCE_Z -8.0f
+#define VIEWING_DISTANCE_Z -800.0f
 
 #define SERVER_PORT 4000
 
@@ -95,7 +95,7 @@ static const char* vColorShader =
 	"{ gl_Position = aPosition; } \n";
 
 static const char* fColorShader = 
-	"uniform vec uColor;\n"
+	"uniform vec4 uColor;\n"
 	"void main() { gl_FragColor = uColor; }\n";
 
 
@@ -216,7 +216,7 @@ int Init ( ESContext *esContext )
 
    // Store the program object
    userData->programObject = CreateShaderProgram(vShaderStr, fShaderStr);
-   colorShader = CreateShaderProgram(vColorShader, fColorShader);
+   //colorShader = CreateShaderProgram(vColorShader, fColorShader);
 
    glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
 
@@ -323,6 +323,8 @@ void GetCounts(const char* pFileName,
 		// Now move the pointer to the next line.
 		pStr = pNewLine + 1;
 	}
+
+	printf("Face Count: %d", nNumFaces);
 }
 
 GLuint LoadBMP(const char* path)
@@ -596,6 +598,8 @@ unsigned int LoadOBJ(const char*   pFileName,
 		pFaces,
 		pVertexBuffer);
 
+	printf("Generated Veretex Buffer.\n");
+
 	// Free arrays made to hold data.
 	delete[] pVertices;
 	pVertices = 0;
@@ -721,8 +725,8 @@ void Draw ( ESContext *esContext )
 
    UpdateServer();
 
-   DrawTriangles();
-   DrawLines();
+   //DrawTriangles();
+   //DrawLines();
 }
 
 
@@ -826,7 +830,7 @@ int main ( int argc, char *argv[] )
    if ( !Init ( &esContext ) )
       return 0;
 
-   vbo = LoadOBJ("Models/Kat.obj", faces, nullptr);
+   vbo = LoadOBJ("Models/Combined.obj", faces, nullptr);
    texture = LoadBMP("Textures/grid.bmp");
 
    InitServer();

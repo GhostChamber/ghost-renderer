@@ -42,4 +42,4 @@ esUtil.o:
 	gcc $(CFLAGS) ${COMMONSRC} Common/esUtil.c -c ${INCDIR} ${LIBS}
 
 ./ghost-renderer: esShader.o esTransform.o esShapes.o esUtil.o ${COMMONHDR} ${renderer-src}
-	g++ -std=c++11 $(CFLAGS) esShader.o esTransform.o esShapes.o esUtil.o ${renderer-src} -o $@ ${INCDIR} ${LIBS}
+	g++ -std=c++11 $(CFLAGS) esShader.o esTransform.o esShapes.o esUtil.o ${renderer-src} -o $@ -g ${INCDIR} ${LIBS}
