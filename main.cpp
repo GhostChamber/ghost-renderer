@@ -86,7 +86,7 @@ static const char* fShaderStr =
       "{                                            \n"
       "  const vec3 lightDir = normalize(vec3(0.577, 0.577, 0.577));\n"
       "  vec4 texColor = texture2D(sTexture, inTexcoord);\n"
-     // "  texColor.rgb = texColor.rgb * max(dot(inNormal, lightDir) , 0.0);\n" // vec4(inNormal, 1.0) * texColor; \n"
+      "  texColor.rgb = texColor.rgb * max(dot(inNormal, lightDir) , 0.0);\n" // vec4(inNormal, 1.0) * texColor; \n"
       "  gl_FragColor = texColor;"
       "}                                            \n";
 
@@ -119,7 +119,7 @@ GLuint LoadShader ( GLenum type, const char *shaderSrc )
 {
    GLuint shader;
    GLint compiled;
-   
+
    // Create the shader object
    shader = glCreateShader ( type );
 
@@ -128,7 +128,7 @@ GLuint LoadShader ( GLenum type, const char *shaderSrc )
 
    // Load the shader source
    glShaderSource ( shader, 1, &shaderSrc, NULL );
-   
+
    // Compile the shader
    glCompileShader ( shader );
 
