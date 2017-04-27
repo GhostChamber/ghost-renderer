@@ -33,7 +33,7 @@ float rotation = 0.0f;
 #define VIEWING_OFFSET_Y -0.4f
 #define VIEWING_DISTANCE_Z -8.0f
 
-#define SERVER_PORT 4900
+#define SERVER_PORT 4000
 
 #define OBJ_MAX_SIZE 13200000
 #define BMP_MAX_SIZE 3200000
@@ -47,6 +47,57 @@ float rotation = 0.0f;
 
 static char s_arFileBuffer[OBJ_MAX_SIZE];
 static char s_arRecvBuffer[RECV_BUFFER_SIZE];
+
+static float triangleVerts[] = { -1.0f, -1.0f,
+				 -1.0f,  1.0f,
+				  0.0f,  1.0f,
+				  1.0f,  1.0f,
+				  1.0f,  -1.0f };
+static float lineVerts[] = { -1.0f, -1.0f,
+			      0.0f,  1.0f,
+			      0.0f,  1.0f,
+			      1.0f, -1.0f };
+
+GLuint colorShader = 0;
+
+ static const char* vShaderStr =  
+      "attribute vec4 vPosition;    \n"
+      "attribute vec2 vTexcoord;    \n"
+      "attribute vec3 vNormal;      \n"
+      "varying vec2 inTexcoord;\n"
+      "varying vec3 inNormal;      \n"
+      "uniform mat4 mViewMatrix;        \n"
+      "uniform mat4 mModelMatrix;  \n"
+      "void main()                  \n"
+      "{                            \n"
+      "   inTexcoord = vTexcoord;   \n"
+      "   inNormal =  (mModelMatrix * vec4(vNormal, 0.0)).xyz;      \n"
+      "   vec4 pos = vec4(vPosition.xyz, 1.0);        \n"
+      "   gl_Position = mViewMatrix * mModelMatrix * pos;  \n"
+      "}                            \n";
+   
+static const char* fShaderStr =  
+      "precision mediump float;\n"
+      "uniform sampler2D sTexture; \n"
+      "varying vec2 inTexcoord;\n"
+      "varying vec3 inNormal;\n"
+      "void main()                                  \n"
+      "{                                            \n"
+      "  const vec3 lightDir = normalize(vec3(0.577, 0.577, 0.577));\n"
+      "  vec4 texColor = texture2D(sTexture, inTexcoord);\n"
+     // "  texColor.rgb = texColor.rgb * max(dot(inNormal, lightDir) , 0.0);\n" // vec4(inNormal, 1.0) * texColor; \n"
+      "  gl_FragColor = texColor;"
+      "}                                            \n";
+
+static const char* vColorShader = 
+	"attribute vec4 aPosition; \n"
+	"void main() \n"
+	"{ gl_Position = aPosition; } \n";
+
+static const char* fColorShader = 
+	"uniform vec uColor;\n"
+	"void main() { gl_FragColor = uColor; }\n";
+
 
 void UpdateServer();
 
@@ -105,63 +156,25 @@ GLuint LoadShader ( GLenum type, const char *shaderSrc )
 
 }
 
-///
-// Initialize the shader and program object
-//
-int Init ( ESContext *esContext )
+GLuint CreateShaderProgram(const char* vertShader, const char* fragShader)
 {
-   esContext->userData = malloc(sizeof(UserData));
-
-   UserData *userData = (UserData*) esContext->userData;
-   const char* vShaderStr =  
-      "attribute vec4 vPosition;    \n"
-      "attribute vec2 vTexcoord;    \n"
-      "attribute vec3 vNormal;      \n"
-      "varying vec2 inTexcoord;\n"
-      "varying vec3 inNormal;      \n"
-      "uniform mat4 mViewMatrix;        \n"
-      "uniform mat4 mModelMatrix;  \n"
-      "void main()                  \n"
-      "{                            \n"
-      "   inTexcoord = vTexcoord;   \n"
-      "   inNormal =  (mModelMatrix * vec4(vNormal, 0.0)).xyz;      \n"
-      "   vec4 pos = vec4(vPosition.xyz, 1.0);        \n"
-      "   gl_Position = mViewMatrix * mModelMatrix * pos;  \n"
-      "}                            \n";
-   
-   const char* fShaderStr =  
-      "precision mediump float;\n"
-      "uniform sampler2D sTexture; \n"
-      "varying vec2 inTexcoord;\n"
-      "varying vec3 inNormal;\n"
-      "void main()                                  \n"
-      "{                                            \n"
-      "  const vec3 lightDir = normalize(vec3(0.577, 0.577, 0.577));\n"
-      "  vec4 texColor = texture2D(sTexture, inTexcoord);\n"
-     // "  texColor.rgb = texColor.rgb * max(dot(inNormal, lightDir) , 0.0);\n" // vec4(inNormal, 1.0) * texColor; \n"
-      "  gl_FragColor = texColor;"
-      "}                                            \n";
-
    GLuint vertexShader;
    GLuint fragmentShader;
    GLuint programObject;
    GLint linked;
 
    // Load the vertex/fragment shaders
-   vertexShader = LoadShader ( GL_VERTEX_SHADER, vShaderStr );
-   fragmentShader = LoadShader ( GL_FRAGMENT_SHADER, fShaderStr );
+   vertexShader = LoadShader ( GL_VERTEX_SHADER, vertShader);
+   fragmentShader = LoadShader ( GL_FRAGMENT_SHADER, fragShader);
 
    // Create the program object
-   programObject = glCreateProgram ( );
-   
+   programObject = glCreateProgram ();
+
    if ( programObject == 0 )
       return 0;
 
    glAttachShader ( programObject, vertexShader );
    glAttachShader ( programObject, fragmentShader );
-
-   // Bind vPosition to attribute 0   
-   glBindAttribLocation ( programObject, 0, "vPosition" );
 
    // Link the program
    glLinkProgram ( programObject );
@@ -186,13 +199,27 @@ int Init ( ESContext *esContext )
       }
 
       glDeleteProgram ( programObject );
-      return GL_FALSE;
+      return 0;
    }
 
-   // Store the program object
-   userData->programObject = programObject;
+   return programObject;
+}
 
-   glClearColor ( 0.2f, 0.2f, 0.2f, 1.0f );
+///
+// Initialize the shader and program object
+//
+int Init ( ESContext *esContext )
+{
+   esContext->userData = malloc(sizeof(UserData));
+
+   UserData *userData = (UserData*) esContext->userData;
+
+   // Store the program object
+   userData->programObject = CreateShaderProgram(vShaderStr, fShaderStr);
+   colorShader = CreateShaderProgram(vColorShader, fColorShader);
+
+   glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
+
    return GL_TRUE;
 }
 
@@ -601,6 +628,24 @@ unsigned int LoadOBJ(const char*   pFileName,
 
 	return unVBO;
 }
+void DrawTriangles()
+{
+	if (colorShader == 0)
+		printf("Color shader not set.\n");
+
+	glUseProgram(colorShader);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	int hColor = glGetUniformLocation(colorShader, "uColor");
+	int hPosition = glGetAttribLocation(colorShader, "aPosition");
+
+}
+
+void DrawLines()
+{
+
+}
 
 ///
 // Draw a triangle using the shader pair created in Init()
@@ -667,7 +712,7 @@ void Draw ( ESContext *esContext )
    glVertexAttribPointer ( hPosition, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0 );
    glVertexAttribPointer(hTexcoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*) (3 * sizeof(float)));
    glVertexAttribPointer(hNormal, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*) (5 * sizeof(float)));
-   glEnableVertexAttribArray ( 0 );
+   glEnableVertexAttribArray (hPosition);
    glEnableVertexAttribArray(hTexcoord);
    glEnableVertexAttribArray(hNormal);
 
@@ -675,6 +720,9 @@ void Draw ( ESContext *esContext )
    glDrawArrays ( GL_TRIANGLES, 0, 3 * faces );
 
    UpdateServer();
+
+   DrawTriangles();
+   DrawLines();
 }
 
 
@@ -707,6 +755,36 @@ int InitServer()
 	return 1;
 }
 
+/*
+int reply(const char* client)
+{
+    int sock, n;
+    socklen_t length;
+    struct sockaddr_in server;
+    struct hostent *hp;
+    char buffer[256];
+
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) perror("socket");
+
+    server.sin_family = AF_INET;
+    hp = gethostbyname(client);
+    if (hp==0) perror("Unknown host");
+
+    bcopy((char *)hp->h_addr, (char *)&server.sin_addr, hp->h_length);
+    server.sin_port = htons(MYPORT + 1);
+    length = sizeof(struct sockaddr_in);
+
+    strcpy(buffer, "SERVER ACTIVE");
+    printf("Sending message to %s\n", client);
+    n = sendto(sock, buffer, strlen(buffer), 0, (const struct sockaddr *)&server, length);
+    if (n < 0) perror("Sendto");
+
+    close(sock);
+    return 0;
+}
+*/
+
 void UpdateServer()
 {
 	struct sockaddr_in remoteAddr;
@@ -721,17 +799,16 @@ void UpdateServer()
 
 	if (recvLen > 0)
 	{
-		printf("MESSAGE RECEIVED! %d\n", recvLen);
+		printf("Message Received: %d bytes \n", recvLen);
 
-		switch(s_arRecvBuffer[0])
-		{
-		case MSG_ROTATE_LEFT:
-			rotation += ROTATE_SPEED;
-			break;
-		case MSG_ROTATE_RIGHT:
-			rotation -= ROTATE_SPEED;
-			break;
-		}
+		float pitch = 0.0f;
+		float yaw = 0.0f;
+		float roll = 0.0f;
+
+		sscanf(s_arRecvBuffer, "%f %f %f", &pitch, &yaw, &roll);
+
+		printf("Yaw: %d\n", yaw);
+		rotation = yaw;
 	}
 }
 
