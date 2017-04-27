@@ -21,10 +21,13 @@
 GLuint vbo = 0;
 GLuint texture = 0;
 GLuint faces = 0;
+
 float rotation = 0.0f;
 
 #define OBJ_MAX_SIZE 1048576
-static char s_arFileBuffer[OBJ_MAX_SIZE];
+#define BMP_MAX_SIZE 3200000
+#define MAX_TEXTURE_SIZE 1024
+static char s_arFileBuffer[BMP_MAX_SIZE];
 
 typedef struct
 {
@@ -91,22 +94,28 @@ int Init ( ESContext *esContext )
    UserData *userData = (UserData*) esContext->userData;
    const char* vShaderStr =  
       "attribute vec4 vPosition;    \n"
+      "attribute vec2 vTexcoord;    \n"
       "attribute vec3 vNormal;      \n"
+      "varying vec2 inTexcoord;\n"
       "varying vec3 inNormal;      \n"
       "uniform mat4 mMatrix;        \n"
       "void main()                  \n"
       "{                            \n"
+      "   inTexcoord = vTexcoord;   \n"
       "   inNormal = vNormal;      \n"
       "   vec4 pos = vec4(vPosition.xyz, 1.0);        \n"
       "   gl_Position = mMatrix * pos;  \n"
       "}                            \n";
    
    const char* fShaderStr =  
-      "precision mediump float;\n"\
+      "precision mediump float;\n"
+      "uniform sampler2D sTexture; \n"
+      "varying vec2 inTexcoord;\n"
       "varying vec3 inNormal;\n"
       "void main()                                  \n"
       "{                                            \n"
-      "  gl_FragColor = vec4(inNormal, 1.0);                   \n"
+      "  vec4 texColor = texture2D(sTexture, inTexcoord);\n"
+      "  gl_FragColor = texColor;\n" // vec4(inNormal, 1.0) * texColor; \n"
       "}                                            \n";
 
    GLuint vertexShader;
@@ -265,11 +274,11 @@ void GetCounts(const char* pFileName,
 	}
 }
 
-GLuint LoadBMP(char* path)
+GLuint LoadBMP(const char* path)
 {
 	GLuint texHandle = 0;
 
-	ReadAsset(path, s_arFileBuffer, OBJ_MAX_SIZE);
+	ReadAsset(path, s_arFileBuffer, BMP_MAX_SIZE);
 	char* data = s_arFileBuffer;
 
 	unsigned char* pData = 0;
@@ -285,6 +294,11 @@ GLuint LoadBMP(char* path)
 	nWidth = *reinterpret_cast<int*>(&data[18]);
 	nHeight = *reinterpret_cast<int*>(&data[22]);
 	sBPP = *reinterpret_cast<short*>(&data[28]);
+
+	printf("Width: %d\n", nWidth);
+	printf("Height: %d\n", nHeight);
+	printf("BPP: %d\n", sBPP);
+
 
 	if (nWidth > MAX_TEXTURE_SIZE ||
 		nHeight > MAX_TEXTURE_SIZE)
@@ -313,9 +327,8 @@ GLuint LoadBMP(char* path)
 				pDst[0] = pSrc[2];
 				pDst[1] = pSrc[1];
 				pDst[2] = pSrc[0];
-				pDst[3] = 255;
 
-				pDst += 4;
+				pDst += 3;
 				pSrc += 3;
 			}
 
@@ -575,10 +588,10 @@ void Draw ( ESContext *esContext )
    GLfloat vVertices[] = { 0.0f,  0.5f, 0.0f,
 						   -0.5f, -0.5f, 0.0f,
 							0.5f, -0.5f, 0.0f };
-      
+
    // Set the viewport
    glViewport ( 0, 0, esContext->width, esContext->height );
-   
+
    // Clear the color buffer
    glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -589,14 +602,26 @@ void Draw ( ESContext *esContext )
    GLint hPosition = glGetAttribLocation(userData->programObject, "vPosition");
    if (hPosition == -1)
    {
-	   printf("Failed to find position attribute");
+	   printf("Failed to find position attribute\n");
+   }
+
+   GLint hTexcoord = glGetAttribLocation(userData->programObject, "vTexcoord");
+   if (hTexcoord == -1)
+   {
+	printf("Failed to find texcoord attribute.\n ");
    }
 
    GLint hNormal = glGetAttribLocation(userData->programObject, "vNormal");
    if (hNormal == -1)
-{
-	printf("Failed to find normal attribute");
-}
+   {
+	printf("Failed to find normal attribute\n");
+   }
+
+   GLint hTexture = glGetUniformLocation(userData->programObject, "sTexture");
+   if (hTexture == -1)
+   {
+	printf("Texture sampler uniform not found.\n");
+   }
 
    GLint hMatrix = glGetUniformLocation(userData->programObject, "mMatrix");
    ESMatrix matrix;
@@ -606,10 +631,16 @@ void Draw ( ESContext *esContext )
    esRotate(&matrix, rotation, 0.0f, 1.0f, 0.0f);
    glUniformMatrix4fv(hMatrix, 1, GL_FALSE, &matrix.m[0][0]);
 
+   glBindTexture(GL_TEXTURE_2D, texture);
    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+   glUniform1i(hTexture, 0);
+
    glVertexAttribPointer ( hPosition, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0 );
-   glVertexAttribPointer(hNormal, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)20); 
-glEnableVertexAttribArray ( 0 );
+   glVertexAttribPointer(hTexcoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*) (3 * sizeof(float)));
+   glVertexAttribPointer(hNormal, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*) (5 * sizeof(float)));
+   glEnableVertexAttribArray ( 0 );
+   glEnableVertexAttribArray(hTexcoord);
    glEnableVertexAttribArray(hNormal);
 
    glEnable(GL_DEPTH_TEST);
@@ -630,6 +661,11 @@ int main ( int argc, char *argv[] )
       return 0;
 
    vbo = LoadOBJ("Models/Kat.obj", faces, nullptr);
+   texture = LoadBMP("Textures/grid.bmp");
+
+   int maxTextureSize = 0;
+   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
+   printf("Max Texture size: %d\n", maxTextureSize);
 
    esRegisterDrawFunc ( &esContext, Draw );
 
