@@ -31,7 +31,7 @@ int serverSocket = 0;
 float rotation = 0.0f;
 
 #define VIEWING_OFFSET_Y -0.4f
-#define VIEWING_DISTANCE_Z -800.0f
+#define VIEWING_DISTANCE_Z -8.0f
 
 #define SERVER_PORT 4000
 
@@ -50,6 +50,7 @@ static char s_arRecvBuffer[RECV_BUFFER_SIZE];
 
 static float triangleVerts[] = { -1.0f, -1.0f,
 				 -1.0f,  1.0f,
+				  0.0f,  1.0f,
 				  0.0f,  1.0f,
 				  1.0f,  1.0f,
 				  1.0f,  -1.0f };
@@ -92,7 +93,9 @@ static const char* fShaderStr =
 static const char* vColorShader = 
 	"attribute vec4 aPosition; \n"
 	"void main() \n"
-	"{ gl_Position = aPosition; } \n";
+        "{ vec4 pos = aPosition;\n"
+	" pos.z = -0.9;\n"
+	" gl_Position = pos;}\n"; // aPosition; } \n";
 
 static const char* fColorShader = 
 	"uniform vec4 uColor;\n"
@@ -216,7 +219,7 @@ int Init ( ESContext *esContext )
 
    // Store the program object
    userData->programObject = CreateShaderProgram(vShaderStr, fShaderStr);
-   //colorShader = CreateShaderProgram(vColorShader, fColorShader);
+   colorShader = CreateShaderProgram(vColorShader, fColorShader);
 
    glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
 
@@ -644,6 +647,15 @@ void DrawTriangles()
 	int hColor = glGetUniformLocation(colorShader, "uColor");
 	int hPosition = glGetAttribLocation(colorShader, "aPosition");
 
+	float black[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+	glUniform4fv(hColor, 1, black);
+	glVertexAttribPointer(hPosition, 2, GL_FLOAT, GL_FALSE, 0, triangleVerts);
+	glEnableVertexAttribArray(hPosition);
+
+	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDrawArrays(GL_TRIANGLES, 0, 3 * 2);
 }
 
 void DrawLines()
@@ -725,8 +737,8 @@ void Draw ( ESContext *esContext )
 
    UpdateServer();
 
-   //DrawTriangles();
-   //DrawLines();
+   DrawTriangles();
+   DrawLines();
 }
 
 
@@ -758,36 +770,6 @@ int InitServer()
 
 	return 1;
 }
-
-/*
-int reply(const char* client)
-{
-    int sock, n;
-    socklen_t length;
-    struct sockaddr_in server;
-    struct hostent *hp;
-    char buffer[256];
-
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) perror("socket");
-
-    server.sin_family = AF_INET;
-    hp = gethostbyname(client);
-    if (hp==0) perror("Unknown host");
-
-    bcopy((char *)hp->h_addr, (char *)&server.sin_addr, hp->h_length);
-    server.sin_port = htons(MYPORT + 1);
-    length = sizeof(struct sockaddr_in);
-
-    strcpy(buffer, "SERVER ACTIVE");
-    printf("Sending message to %s\n", client);
-    n = sendto(sock, buffer, strlen(buffer), 0, (const struct sockaddr *)&server, length);
-    if (n < 0) perror("Sendto");
-
-    close(sock);
-    return 0;
-}
-*/
 
 void UpdateServer()
 {
@@ -830,7 +812,7 @@ int main ( int argc, char *argv[] )
    if ( !Init ( &esContext ) )
       return 0;
 
-   vbo = LoadOBJ("Models/Combined.obj", faces, nullptr);
+   vbo = LoadOBJ("Models/Gun.obj", faces, nullptr);
    texture = LoadBMP("Textures/grid.bmp");
 
    InitServer();
