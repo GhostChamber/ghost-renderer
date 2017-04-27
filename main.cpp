@@ -18,20 +18,32 @@
 #include "esUtil.h"
 #include <stdio.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>	
+#include <netdb.h>
+
 GLuint vbo = 0;
 GLuint texture = 0;
 GLuint faces = 0;
+int serverSocket = 0;
 
 float rotation = 0.0f;
 
 #define VIEWING_OFFSET_Y -0.4f
 #define VIEWING_DISTANCE_Z -8.0f
 
+#define SERVER_PORT 4900
 
 #define OBJ_MAX_SIZE 13200000
 #define BMP_MAX_SIZE 3200000
 #define MAX_TEXTURE_SIZE 1024
+#define RECV_BUFFER_SIZE 2048
+
 static char s_arFileBuffer[OBJ_MAX_SIZE];
+static char s_arRecvBuffer[RECV_BUFFER_SIZE];
+
+void UpdateServer();
 
 typedef struct
 {
@@ -157,14 +169,14 @@ int Init ( ESContext *esContext )
       GLint infoLen = 0;
 
       glGetProgramiv ( programObject, GL_INFO_LOG_LENGTH, &infoLen );
-      
+
       if ( infoLen > 1 )
       {
          char* infoLog = (char*) malloc (sizeof(char) * infoLen );
 
          glGetProgramInfoLog ( programObject, infoLen, NULL, infoLog );
-         esLogMessage ( "Error linking program:\n%s\n", infoLog );            
-         
+         esLogMessage ( "Error linking program:\n%s\n", infoLog );
+
          free ( infoLog );
       }
 
@@ -656,7 +668,48 @@ void Draw ( ESContext *esContext )
 
    glEnable(GL_DEPTH_TEST);
    glDrawArrays ( GL_TRIANGLES, 0, 3 * faces );
+
+   UpdateServer();
 }
+
+
+int InitServer()
+{
+	serverSocket = socket(AF_INET, SOCK_DGRAM, 0);
+	if (serverSocket < 0)
+	{
+		printf("Failed to create socket.\n");
+		return 0;
+	}
+
+	struct sockaddr_in serverAddr;
+	memset(&serverAddr, 0, sizeof(sockaddr_in));
+	serverAddr.sin_family = AF_INET;
+	serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	serverAddr.sin_port = htons(SERVER_PORT);
+
+	if (bind(serverSocket, (struct sockaddr*) &serverAddr, sizeof(serverAddr)) < 0)
+	{
+		printf("Failed to bind socket.\n");
+		return 0;
+	}
+
+	return 1;
+}
+
+void UpdateServer()
+{
+	struct sockaddr_in remoteAddr;
+	socklen_t addrlen = sizeof(remoteAddr);
+
+	if (serverSocket > 0)
+	{
+		printf("Receiving on server socket.");
+		int recvLen = recvfrom(serverSocket, s_arRecvBuffer, RECV_BUFFER_SIZE, 0, (struct sockaddr*) &remoteAddr, &addrlen);
+		printf("Received message! Num Bytes: %d\n", recvLen); 
+	}
+}
+
 
 int main ( int argc, char *argv[] )
 {
@@ -674,11 +727,11 @@ int main ( int argc, char *argv[] )
    vbo = LoadOBJ("Models/Kat.obj", faces, nullptr);
    texture = LoadBMP("Textures/grid.bmp");
 
-   int maxTextureSize = 0;
-   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
-   printf("Max Texture size: %d\n", maxTextureSize);
+   InitServer();
 
    esRegisterDrawFunc ( &esContext, Draw );
 
    esMainLoop ( &esContext );
+
+   close(serverSocket);
 }
