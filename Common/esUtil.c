@@ -343,8 +343,8 @@ GLboolean ESUTIL_API esCreateWindow ( ESContext *esContext, const char* title, G
        EGL_GREEN_SIZE,     6,
        EGL_BLUE_SIZE,      5,
        EGL_ALPHA_SIZE,     (flags & ES_WINDOW_ALPHA) ? 8 : EGL_DONT_CARE,
-       EGL_DEPTH_SIZE,     (flags & ES_WINDOW_DEPTH) ? 8 : EGL_DONT_CARE,
-       EGL_STENCIL_SIZE,   (flags & ES_WINDOW_STENCIL) ? 8 : EGL_DONT_CARE,
+       EGL_DEPTH_SIZE,     (flags & ES_WINDOW_DEPTH) ? 16 : EGL_DONT_CARE,
+       EGL_STENCIL_SIZE,   0,
        EGL_SAMPLE_BUFFERS, (flags & ES_WINDOW_MULTISAMPLE) ? 1 : 0,
        EGL_NONE
    };

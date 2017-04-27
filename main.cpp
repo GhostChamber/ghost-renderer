@@ -24,10 +24,14 @@ GLuint faces = 0;
 
 float rotation = 0.0f;
 
-#define OBJ_MAX_SIZE 1048576
+#define VIEWING_OFFSET_Y -0.4f
+#define VIEWING_DISTANCE_Z -8.0f
+
+
+#define OBJ_MAX_SIZE 13200000
 #define BMP_MAX_SIZE 3200000
 #define MAX_TEXTURE_SIZE 1024
-static char s_arFileBuffer[BMP_MAX_SIZE];
+static char s_arFileBuffer[OBJ_MAX_SIZE];
 
 typedef struct
 {
@@ -98,13 +102,14 @@ int Init ( ESContext *esContext )
       "attribute vec3 vNormal;      \n"
       "varying vec2 inTexcoord;\n"
       "varying vec3 inNormal;      \n"
-      "uniform mat4 mMatrix;        \n"
+      "uniform mat4 mViewMatrix;        \n"
+      "uniform mat4 mModelMatrix;  \n"
       "void main()                  \n"
       "{                            \n"
       "   inTexcoord = vTexcoord;   \n"
-      "   inNormal = vNormal;      \n"
+      "   inNormal =  (mModelMatrix * vec4(vNormal, 0.0)).xyz;      \n"
       "   vec4 pos = vec4(vPosition.xyz, 1.0);        \n"
-      "   gl_Position = mMatrix * pos;  \n"
+      "   gl_Position = mViewMatrix * mModelMatrix * pos;  \n"
       "}                            \n";
    
    const char* fShaderStr =  
@@ -114,8 +119,10 @@ int Init ( ESContext *esContext )
       "varying vec3 inNormal;\n"
       "void main()                                  \n"
       "{                                            \n"
+      "  const vec3 lightDir = normalize(vec3(0.577, 0.577, 0.577));\n"
       "  vec4 texColor = texture2D(sTexture, inTexcoord);\n"
-      "  gl_FragColor = texColor;\n" // vec4(inNormal, 1.0) * texColor; \n"
+     // "  texColor.rgb = texColor.rgb * max(dot(inNormal, lightDir) , 0.0);\n" // vec4(inNormal, 1.0) * texColor; \n"
+      "  gl_FragColor = texColor;"
       "}                                            \n";
 
    GLuint vertexShader;
@@ -623,13 +630,17 @@ void Draw ( ESContext *esContext )
 	printf("Texture sampler uniform not found.\n");
    }
 
-   GLint hMatrix = glGetUniformLocation(userData->programObject, "mMatrix");
-   ESMatrix matrix;
-   esMatrixLoadIdentity(&matrix);
-   esFrustum(&matrix, -0.025f, 0.025f, -0.017f, 0.017f, 0.1f, 1024.0f);
-   esTranslate(&matrix, 0.0f, 0.0f, -10.0f);
-   esRotate(&matrix, rotation, 0.0f, 1.0f, 0.0f);
-   glUniformMatrix4fv(hMatrix, 1, GL_FALSE, &matrix.m[0][0]);
+   GLint hViewMatrix = glGetUniformLocation(userData->programObject, "mViewMatrix");
+   GLint hModelMatrix = glGetUniformLocation(userData->programObject, "mModelMatrix");
+   ESMatrix viewMatrix;
+   ESMatrix modelMatrix;
+   esMatrixLoadIdentity(&viewMatrix);
+   esMatrixLoadIdentity(&modelMatrix);
+   esFrustum(&viewMatrix, -0.025f, 0.025f, -0.017f, 0.017f, 0.1f, 1024.0f);
+   esTranslate(&viewMatrix, 0.0f, VIEWING_OFFSET_Y, VIEWING_DISTANCE_Z);
+   esRotate(&modelMatrix, rotation, 0.0f, 1.0f, 0.0f);
+   glUniformMatrix4fv(hViewMatrix, 1, GL_FALSE, &viewMatrix.m[0][0]);
+   glUniformMatrix4fv(hModelMatrix, 1, GL_FALSE, &modelMatrix.m[0][0]);
 
    glBindTexture(GL_TEXTURE_2D, texture);
    glBindBuffer(GL_ARRAY_BUFFER, vbo);
