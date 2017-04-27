@@ -40,6 +40,11 @@ float rotation = 0.0f;
 #define MAX_TEXTURE_SIZE 1024
 #define RECV_BUFFER_SIZE 2048
 
+#define MSG_ROTATE_LEFT 1
+#define MSG_ROTATE_RIGHT 2
+
+#define ROTATE_SPEED 10.0f
+
 static char s_arFileBuffer[OBJ_MAX_SIZE];
 static char s_arRecvBuffer[RECV_BUFFER_SIZE];
 
@@ -602,7 +607,7 @@ unsigned int LoadOBJ(const char*   pFileName,
 //
 void Draw ( ESContext *esContext )
 {
-   rotation += 1.0f;
+   //rotation += ROTATE_SPEED;
    UserData *userData = (UserData*) esContext->userData;
    GLfloat vVertices[] = { 0.0f,  0.5f, 0.0f,
 						   -0.5f, -0.5f, 0.0f,
@@ -712,12 +717,21 @@ void UpdateServer()
 		return;
 	}
 
-	int recvLen = recvfrom(serverSocket, s_arRecvBuffer, RECV_BUFFER_SIZE, MSG_PEEK, (struct sockaddr*) &remoteAddr, &addrlen);
+	int recvLen = recvfrom(serverSocket, s_arRecvBuffer, RECV_BUFFER_SIZE, 0, (struct sockaddr*) &remoteAddr, &addrlen);
 
 	if (recvLen > 0)
 	{
-		recvLen = recvfrom(serverSocket, s_arRecvBuffer, RECV_BUFFER_SIZE, 0, (struct sockaddr*) &remoteAddr, &addrlen);
-		printf("Received message! Num Bytes: %d\n", recvLen); 
+		printf("MESSAGE RECEIVED! %d\n", recvLen);
+
+		switch(s_arRecvBuffer[0])
+		{
+		case MSG_ROTATE_LEFT:
+			rotation += ROTATE_SPEED;
+			break;
+		case MSG_ROTATE_RIGHT:
+			rotation -= ROTATE_SPEED;
+			break;
+		}
 	}
 }
 
