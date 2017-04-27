@@ -694,6 +694,11 @@ int InitServer()
 		return 0;
 	}
 
+	timeval timeoutLength;
+	timeoutLength.tv_sec = 0;
+	timeoutLength.tv_usec = 10;
+	setsockopt(serverSocket, SOL_SOCKET, SO_RCVTIMEO, &timeoutLength, sizeof(timeval));
+
 	return 1;
 }
 
@@ -702,10 +707,16 @@ void UpdateServer()
 	struct sockaddr_in remoteAddr;
 	socklen_t addrlen = sizeof(remoteAddr);
 
-	if (serverSocket > 0)
+	if (serverSocket < 0)
 	{
-		printf("Receiving on server socket.");
-		int recvLen = recvfrom(serverSocket, s_arRecvBuffer, RECV_BUFFER_SIZE, 0, (struct sockaddr*) &remoteAddr, &addrlen);
+		return;
+	}
+
+	int recvLen = recvfrom(serverSocket, s_arRecvBuffer, RECV_BUFFER_SIZE, MSG_PEEK, (struct sockaddr*) &remoteAddr, &addrlen);
+
+	if (recvLen > 0)
+	{
+		recvLen = recvfrom(serverSocket, s_arRecvBuffer, RECV_BUFFER_SIZE, 0, (struct sockaddr*) &remoteAddr, &addrlen);
 		printf("Received message! Num Bytes: %d\n", recvLen); 
 	}
 }
