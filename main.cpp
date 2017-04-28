@@ -38,20 +38,23 @@ int numModels = 2;
 int currentModel = 0;
 
 const char* modelPaths[] = { "Models/Gun.obj",
-			     "Models/Kat.obj" };
+			     "Models/Combined.obj" };
 
-const char* texturePaths[] = { "Textures/grid.bmp",
-			       "Textures/grid.bmp" };
+const char* texturePaths[] = { "Textures/gun_1024.bmp",
+			       "Textures/red.bmp" };
 
+
+#define SCREEN_WIDTH 1920
+#define SCREEN_HEIGHT 1080
 
 #define VIEWING_OFFSET_Y -0.4f
-#define VIEWING_DISTANCE_Z -8.0f
+#define VIEWING_DISTANCE_Z -500.0f
 
 #define SERVER_PORT 4000
 
 #define OBJ_MAX_SIZE 13200000
-#define BMP_MAX_SIZE 3200000
-#define MAX_TEXTURE_SIZE 1024
+#define BMP_MAX_SIZE 13200000
+#define MAX_TEXTURE_SIZE 2048
 #define RECV_BUFFER_SIZE 2048
 
 #define MSG_ROTATE_LEFT 1
@@ -81,14 +84,14 @@ GLuint colorShader = 0;
       "attribute vec3 vNormal;      \n"
       "varying vec2 inTexcoord;\n"
       "varying vec3 inNormal;      \n"
-      "uniform mat4 mViewMatrix;        \n"
-      "uniform mat4 mModelMatrix;  \n"
+      "uniform mat4 mMVPMatrix;        \n"
+      "uniform mat4 mNormalMatrix;  \n"
       "void main()                  \n"
       "{                            \n"
       "   inTexcoord = vTexcoord;   \n"
-      "   inNormal =  (mModelMatrix * vec4(vNormal, 0.0)).xyz;      \n"
+      "   inNormal =  (mNormalMatrix * vec4(vNormal, 0.0)).xyz;      \n"
       "   vec4 pos = vec4(vPosition.xyz, 1.0);        \n"
-      "   gl_Position = mViewMatrix * mModelMatrix * pos;  \n"
+      "   gl_Position = mMVPMatrix * pos;  \n"
       "}                            \n";
    
 static const char* fShaderStr =  
@@ -668,8 +671,6 @@ void DrawTriangles()
 	glEnableVertexAttribArray(hPosition);
 
 	glDisable(GL_DEPTH_TEST);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDrawArrays(GL_TRIANGLES, 0, 3 * 2);
 }
 
@@ -708,6 +709,9 @@ void DrawLines()
 //
 void Draw ( ESContext *esContext )
 {
+   glEnable(GL_BLEND);
+   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
    //rotation += ROTATE_SPEED;
    UserData *userData = (UserData*) esContext->userData;
    GLfloat vVertices[] = { 0.0f,  0.5f, 0.0f,
@@ -748,16 +752,18 @@ void Draw ( ESContext *esContext )
 	printf("Texture sampler uniform not found.\n");
    }
 
-   GLint hViewMatrix = glGetUniformLocation(userData->programObject, "mViewMatrix");
-   GLint hModelMatrix = glGetUniformLocation(userData->programObject, "mModelMatrix");
+   GLint hViewMatrix = glGetUniformLocation(userData->programObject, "mMVPMatrix");
+   GLint hModelMatrix = glGetUniformLocation(userData->programObject, "mNormalMatrix");
    ESMatrix viewMatrix;
    ESMatrix modelMatrix;
    esMatrixLoadIdentity(&viewMatrix);
    esMatrixLoadIdentity(&modelMatrix);
    esFrustum(&viewMatrix, -0.025f, 0.025f, -0.017f, 0.017f, 0.1f, 1024.0f);
    esTranslate(&viewMatrix, 0.0f, VIEWING_OFFSET_Y, VIEWING_DISTANCE_Z);
+   esRotate(&viewMatrix, rotation, 0.0f, 1.0f, 0.0f);
+   esScale(&viewMatrix, scale, scale, scale);
    esRotate(&modelMatrix, rotation, 0.0f, 1.0f, 0.0f);
-   esScale(&modelMatrix, scale, scale, scale);
+
    glUniformMatrix4fv(hViewMatrix, 1, GL_FALSE, &viewMatrix.m[0][0]);
    glUniformMatrix4fv(hModelMatrix, 1, GL_FALSE, &modelMatrix.m[0][0]);
 
@@ -778,8 +784,8 @@ void Draw ( ESContext *esContext )
 
    UpdateServer();
 
-   DrawTriangles();
-   DrawLines();
+   //DrawTriangles();
+   //DrawLines();
 }
 
 
@@ -855,11 +861,13 @@ void UpdateServer()
 			return;
 		}
 
-		if (recvLen == 1 &&
-		    s_arRecvBuffer[0] == 'M')
+		if (s_arRecvBuffer[0] == 'M')
 		{
-			currentModel++;
+			sscanf(s_arRecvBuffer+1, "%d", &currentModel);
+
 			if (currentModel >= numModels)
+				currentModel = numModels - 1;
+			if (currentModel < 0)
 				currentModel = 0;
 
 			glDeleteBuffers(1, &vbo);
@@ -867,21 +875,25 @@ void UpdateServer()
 
 			vbo = LoadOBJ(modelPaths[currentModel], faces, nullptr);
 			texture = LoadBMP(texturePaths[currentModel]);
-			printf("New texture: %d\n", texture);
+		}
+
+		if (s_arRecvBuffer[0] == 'T')
+		{
+			float pitch = 0.0f;
+			float yaw = 0.0f;
+			float roll = 0.0f;
+			float uniScale = 1.0f;
+
+			sscanf(s_arRecvBuffer+1, "%f %f %f %f", &pitch, &yaw, &roll, &uniScale);
+
+			rotation = yaw;
+			scale = uniScale;
+
+			return;
 		}
 
 		printf("Message Received: %d bytes \n", recvLen);
 
-		float pitch = 0.0f;
-		float yaw = 0.0f;
-		float roll = 0.0f;
-		float uniScale = 1.0f;
-
-		sscanf(s_arRecvBuffer, "%f %f %f %f", &pitch, &yaw, &roll, &uniScale);
-
-		printf("Yaw: %d\n", yaw);
-		rotation = yaw;
-		scale = uniScale;
 	}
 }
 
@@ -894,13 +906,13 @@ int main ( int argc, char *argv[] )
    esInitContext ( &esContext );
    esContext.userData = &userData;
 
-   esCreateWindow ( &esContext, "Ghost Renderer", 1920, 1080, ES_WINDOW_RGB | ES_WINDOW_DEPTH);
+   esCreateWindow ( &esContext, "Ghost Renderer", SCREEN_WIDTH, SCREEN_HEIGHT, ES_WINDOW_RGB | ES_WINDOW_DEPTH);
 
    if ( !Init ( &esContext ) )
       return 0;
 
-   vbo = LoadOBJ("Models/Gun.obj", faces, nullptr);
-   texture = LoadBMP("Textures/grid.bmp");
+   vbo = LoadOBJ(modelPaths[0], faces, nullptr);
+   texture = LoadBMP(texturePaths[0]);
 
    InitServer();
 
