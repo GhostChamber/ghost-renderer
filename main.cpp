@@ -33,6 +33,17 @@ float scale = 1.0f;
 
 int displayLines = 0;
 
+
+int numModels = 2;
+int currentModel = 0;
+
+const char* modelPaths[] = { "Models/Gun.obj",
+			     "Models/Kat.obj" };
+
+const char* texturePaths[] = { "Textures/grid.bmp",
+			       "Textures/grid.bmp" };
+
+
 #define VIEWING_OFFSET_Y -0.4f
 #define VIEWING_DISTANCE_Z -8.0f
 
@@ -91,7 +102,8 @@ static const char* fShaderStr =
       "  vec4 texColor = texture2D(sTexture, inTexcoord);\n"
       "  texColor.rgb = texColor.rgb * max(dot(inNormal, lightDir) , 0.0);\n" // vec4(inNormal, 1.0) * texColor; \n"
       "  gl_FragColor = texColor;"
-      "}                                            \n";
+     //"gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n" 
+     "}                                            \n";
 
 static const char* vColorShader = 
 	"attribute vec4 aPosition; \n"
@@ -150,7 +162,7 @@ GLuint LoadShader ( GLenum type, const char *shaderSrc )
 
          glGetShaderInfoLog ( shader, infoLen, NULL, infoLog );
          esLogMessage ( "Error compiling shader:\n%s\n", infoLog );            
-         
+
          free ( infoLog );
       }
 
@@ -347,8 +359,6 @@ GLuint LoadBMP(const char* path)
 	int nHeight = 0;
 	unsigned short sBPP = 0;
 
-
-
 	// Grab the dimensions of texture
 	nWidth = *reinterpret_cast<int*>(&data[18]);
 	nHeight = *reinterpret_cast<int*>(&data[22]);
@@ -398,6 +408,8 @@ GLuint LoadBMP(const char* path)
 		// Generate and bind as current texture
 		glGenTextures(1, &texHandle);
 		glBindTexture(GL_TEXTURE_2D, texHandle);
+
+		printf("TexHandle : %d\n", texHandle);
 
 		// Set default texture paramters
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -841,6 +853,21 @@ void UpdateServer()
 		{
 			displayLines = !displayLines;
 			return;
+		}
+
+		if (recvLen == 1 &&
+		    s_arRecvBuffer[0] == 'M')
+		{
+			currentModel++;
+			if (currentModel >= numModels)
+				currentModel = 0;
+
+			glDeleteBuffers(1, &vbo);
+			glDeleteTextures(1, &texture);
+
+			vbo = LoadOBJ(modelPaths[currentModel], faces, nullptr);
+			texture = LoadBMP(texturePaths[currentModel]);
+			printf("New texture: %d\n", texture);
 		}
 
 		printf("Message Received: %d bytes \n", recvLen);
