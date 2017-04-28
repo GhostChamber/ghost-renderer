@@ -29,6 +29,8 @@ GLuint faces = 0;
 int serverSocket = 0;
 
 float rotation = 0.0f;
+float scale = 1.0f;
+
 int displayLines = 0;
 
 #define VIEWING_OFFSET_Y -0.4f
@@ -743,6 +745,7 @@ void Draw ( ESContext *esContext )
    esFrustum(&viewMatrix, -0.025f, 0.025f, -0.017f, 0.017f, 0.1f, 1024.0f);
    esTranslate(&viewMatrix, 0.0f, VIEWING_OFFSET_Y, VIEWING_DISTANCE_Z);
    esRotate(&modelMatrix, rotation, 0.0f, 1.0f, 0.0f);
+   esScale(&modelMatrix, scale, scale, scale);
    glUniformMatrix4fv(hViewMatrix, 1, GL_FALSE, &viewMatrix.m[0][0]);
    glUniformMatrix4fv(hModelMatrix, 1, GL_FALSE, &modelMatrix.m[0][0]);
 
@@ -845,11 +848,13 @@ void UpdateServer()
 		float pitch = 0.0f;
 		float yaw = 0.0f;
 		float roll = 0.0f;
+		float uniScale = 1.0f;
 
-		sscanf(s_arRecvBuffer, "%f %f %f", &pitch, &yaw, &roll);
+		sscanf(s_arRecvBuffer, "%f %f %f %f", &pitch, &yaw, &roll, &uniScale);
 
 		printf("Yaw: %d\n", yaw);
 		rotation = yaw;
+		scale = uniScale;
 	}
 }
 
