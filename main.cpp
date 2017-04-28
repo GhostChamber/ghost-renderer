@@ -29,6 +29,7 @@ GLuint faces = 0;
 int serverSocket = 0;
 
 float rotation = 0.0f;
+int displayLines = 0;
 
 #define VIEWING_OFFSET_Y -0.4f
 #define VIEWING_DISTANCE_Z -8.0f
@@ -660,8 +661,33 @@ void DrawTriangles()
 
 void DrawLines()
 {
+	if (displayLines == 0)
+		return;
 
+	if (colorShader == 0)
+		printf("Color shader not set.\n");
+
+	glUseProgram(colorShader);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	int hColor = glGetUniformLocation(colorShader, "uColor");
+	int hPosition = glGetAttribLocation(colorShader, "aPosition");
+
+	float red[4] = {1.0f, 0.0f, 0.0f, 1.0f};
+
+	glLineWidth(10.0f);
+	glUniform4fv(hColor, 1, red);
+	glVertexAttribPointer(hPosition, 2, GL_FLOAT, GL_FALSE, 0, lineVerts);
+	glEnableVertexAttribArray(hPosition);
+
+	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDrawArrays(GL_LINES, 0, 2 * 2);
+	glLineWidth(1.0f);
 }
+
 
 ///
 // Draw a triangle using the shader pair created in Init()
@@ -771,6 +797,21 @@ int InitServer()
 	return 1;
 }
 
+void FlipBlackTriangles()
+{
+	for (int i = 1; i < 12; i += 2)
+	{
+		triangleVerts[i] *= -1.0f;
+	}
+
+	for (int i = 1; i < 8; i += 2)
+	{
+		lineVerts[i] *= -1.0f;
+	}
+
+	printf("Flipped black triangle.\n");
+}
+
 void UpdateServer()
 {
 	struct sockaddr_in remoteAddr;
@@ -785,6 +826,20 @@ void UpdateServer()
 
 	if (recvLen > 0)
 	{
+		if (recvLen == 1 &&
+		    s_arRecvBuffer[0] == 'F')
+		{
+			FlipBlackTriangles();
+			return;
+		}
+
+		if (recvLen == 1 &&
+		    s_arRecvBuffer[0] == 'L')
+		{
+			displayLines = !displayLines;
+			return;
+		}
+
 		printf("Message Received: %d bytes \n", recvLen);
 
 		float pitch = 0.0f;
